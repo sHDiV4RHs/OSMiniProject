@@ -1,58 +1,62 @@
-# chat_client.py
-
 import select
 import socket
 import sys
 
 
-def chat_client():
-    if len(sys.argv) < 3:
-        print ('Usage : python chat_client.py hostname port')
-        sys.exit()
+if len(sys.argv) < 4:
+    print ('Please run like this: python client.py serverIP serverPort clientName')
+    sys.exit()
 
-    host = sys.argv[1]
-    port = int(sys.argv[2])
+host = sys.argv[1]
+port = int(sys.argv[2])
+clientName = sys.argv[3]
 
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.settimeout(2)
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.settimeout(2)
 
-    # connect to remote host
-    try:
-        s.connect((host, port))
-    except:
-        print ('Unable to connect')
-        sys.exit()
+try:
+    s.connect((host, port))
+except:
+    print ('Connection Failed!')
+    sys.exit()
 
-    print ('Connected to remote host. You can start sending messages')
-    sys.stdout.write('[Me] ')
-    sys.stdout.flush()
+print('Connected successfully. You are {}.'.format(clientName))
 
-    while 1:
-        socket_list = [sys.stdin, s]
+while True:
+    socket_list = [sys.stdin, s]
 
-        # Get the list sockets which are readable
-        read_sockets, write_sockets, error_sockets = select.select(socket_list, [], [])
+    read_sockets, write_sockets, error_sockets = select.select(socket_list, [], [])
 
-        for sock in read_sockets:
-            if sock == s:
-                # incoming message from remote server, s
-                data = sock.recv(4096)
-                if not data:
-                    print ('\nDisconnected from chat server')
-                    sys.exit()
-                else:
-                    # print data
-                    sys.stdout.write(data)
-                    sys.stdout.write('[Me] ')
-                    sys.stdout.flush()
-
+    for sock in read_sockets:
+        if sock == s:
+            # From server
+            data = sock.recv(4096)
+            if not data:
+                s.close()
+                print ('\nYou are Disconnected!')
+                sys.exit()
             else:
-                # user entered a message
-                msg = sys.stdin.readline()
-                s.send(msg)
-                sys.stdout.write('[Me] ')
                 sys.stdout.flush()
+                sys.stdout.write(data)
 
+        else:
+            # From myself
+            msg = sys.stdin.readline()
+            splittedMessage = msg.split(' ')
+            if splittedMessage[0] == 'quit\n':
+                s.close()
+                print('Quit successfully.')
+                sys.exit()
 
-if __name__ == "__main__":
-    sys.exit(chat_client())
+            elif splittedMessage[0] == 'send':
+                gID = splittedMessage[1]
+                s.send(gID + " " +
+                       "{}: ".format(clientName) +
+                       msg[len('send') + 1 + len(gID) + 1:])
+            else:
+                try:
+                    s.send(msg)
+                except:
+                    s.close()
+                    print ('\nYou are Disconnected!')
+                    sys.exit()
